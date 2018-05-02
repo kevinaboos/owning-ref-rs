@@ -1,3 +1,6 @@
+#![no_std]
+#![feature(alloc)]
+
 #![warn(missing_docs)]
 
 /*!
@@ -133,7 +136,7 @@ fn main() {
 ```
 extern crate owning_ref;
 use owning_ref::RcRef;
-use std::rc::Rc;
+use core::rc::Rc;
 
 fn main() {
     let rc: RcRef<[i32]> = RcRef::new(Rc::new([1, 2, 3, 4]) as Rc<[i32]>);
@@ -156,7 +159,7 @@ fn main() {
 ```
 extern crate owning_ref;
 use owning_ref::ArcRef;
-use std::sync::Arc;
+use core::sync::Arc;
 
 fn main() {
     use std::thread;
@@ -189,7 +192,7 @@ fn main() {
 ```
 extern crate owning_ref;
 use owning_ref::RefRef;
-use std::cell::{RefCell, Ref};
+use core::cell::{RefCell, Ref};
 
 fn main() {
     let refcell = RefCell::new((1, 2, 3, 4));
@@ -220,7 +223,7 @@ a _mutable owning reference_. (E.g. with `Box`, `RefMut`, `MutexGuard`)
 ```
 extern crate owning_ref;
 use owning_ref::RefMutRefMut;
-use std::cell::{RefCell, RefMut};
+use core::cell::{RefCell, RefMut};
 
 fn main() {
     let refcell = RefCell::new((1, 2, 3, 4));
@@ -243,8 +246,17 @@ fn main() {
 ```
 */
 
+#[cfg(test)]
+#[macro_use] extern crate std;
+
+
+extern crate alloc;
+extern crate spin;
+
 extern crate stable_deref_trait;
 pub use stable_deref_trait::{StableDeref as StableAddress, CloneStableDeref as CloneStableAddress};
+
+use alloc::boxed::Box;
 
 /// An owning reference.
 ///
@@ -728,7 +740,7 @@ impl<O, T: ?Sized> OwningRefMut<O, T> {
 // OwningHandle
 /////////////////////////////////////////////////////////////////////////////
 
-use std::ops::{Deref, DerefMut};
+use core::ops::{Deref, DerefMut};
 
 /// `OwningHandle` is a complement to `OwningRef`. Where `OwningRef` allows
 /// consumers to pass around an owned object and a dependent reference,
@@ -858,15 +870,15 @@ impl<O, H> OwningHandle<O, H>
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// std traits
+// core traits
 /////////////////////////////////////////////////////////////////////////////
 
-use std::convert::From;
-use std::fmt::{self, Debug};
-use std::marker::{Send, Sync};
-use std::cmp::{Eq, PartialEq, Ord, PartialOrd, Ordering};
-use std::hash::{Hash, Hasher};
-use std::borrow::Borrow;
+use core::convert::From;
+use core::fmt::{self, Debug};
+use core::marker::{Send, Sync};
+use core::cmp::{Eq, PartialEq, Ord, PartialOrd, Ordering};
+use core::hash::{Hash, Hasher};
+use core::borrow::Borrow;
 
 impl<O, T: ?Sized> Deref for OwningRef<O, T> {
     type Target = T;
@@ -1061,14 +1073,14 @@ impl<O, T: ?Sized> Hash for OwningRefMut<O, T> where T: Hash {
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// std types integration and convenience type defs
+// core types integration and convenience type defs
 /////////////////////////////////////////////////////////////////////////////
-
-use std::boxed::Box;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::{MutexGuard, RwLockReadGuard, RwLockWriteGuard};
-use std::cell::{Ref, RefCell, RefMut};
+use alloc::Vec;
+use alloc::String;
+use alloc::rc::Rc;
+use alloc::arc::Arc;
+use spin::{MutexGuard, RwLockReadGuard, RwLockWriteGuard};
+use core::cell::{Ref, RefCell, RefMut};
 
 impl<T: 'static> ToHandle for RefCell<T> {
     type Handle = Ref<'static, T>;
@@ -1153,18 +1165,22 @@ pub type ErasedBoxRefMut<U> = OwningRefMut<Box<Erased>, U>;
 #[cfg(test)]
 mod tests {
     mod owning_ref {
+        use alloc::boxed::Box;
+        use alloc::vec::Vec;
+        use alloc::string::String;
+
         use super::super::OwningRef;
         use super::super::{RcRef, BoxRef, Erased, ErasedBoxRef};
         use std::cmp::{PartialEq, Ord, PartialOrd, Ordering};
         use std::hash::{Hash, Hasher};
         use std::collections::hash_map::DefaultHasher;
         use std::collections::HashMap;
-        use std::rc::Rc;
+        use alloc::rc::Rc;
 
         #[derive(Debug, PartialEq)]
         struct Example(u32, String, [u8; 3]);
         fn example() -> Example {
-            Example(42, "hello world".to_string(), [1, 2, 3])
+            Example(42, String::from("hello world"), [1, 2, 3])
         }
 
         #[test]
@@ -1272,9 +1288,9 @@ mod tests {
         #[test]
         fn raii_locks() {
             use super::super::{RefRef, RefMutRef};
-            use std::cell::RefCell;
+            use core::cell::RefCell;
             use super::super::{MutexGuardRef, RwLockReadGuardRef, RwLockWriteGuardRef};
-            use std::sync::{Mutex, RwLock};
+            use spin::{Mutex, RwLock};
 
             {
                 let a = RefCell::new(1);
@@ -1299,7 +1315,7 @@ mod tests {
             {
                 let a = Mutex::new(1);
                 let a = {
-                    let a = MutexGuardRef::new(a.lock().unwrap());
+                    let a = MutexGuardRef::new(a.lock());
                     assert_eq!(*a, 1);
                     a
                 };
@@ -1309,7 +1325,7 @@ mod tests {
             {
                 let a = RwLock::new(1);
                 let a = {
-                    let a = RwLockReadGuardRef::new(a.read().unwrap());
+                    let a = RwLockReadGuardRef::new(a.read());
                     assert_eq!(*a, 1);
                     a
                 };
@@ -1319,7 +1335,7 @@ mod tests {
             {
                 let a = RwLock::new(1);
                 let a = {
-                    let a = RwLockWriteGuardRef::new(a.write().unwrap());
+                    let a = RwLockWriteGuardRef::new(a.write());
                     assert_eq!(*a, 1);
                     a
                 };
@@ -1366,7 +1382,7 @@ mod tests {
         #[test]
         fn borrow() {
             let mut hash = HashMap::new();
-            let     key  = RcRef::<String>::new(Rc::new("foo-bar".to_string())).map(|s| &s[..]);
+            let     key  = RcRef::<String>::new(Rc::new(String::from("foo-bar"))).map(|s| &s[..]);
 
             hash.insert(key.clone().map(|s| &s[..3]), 42);
             hash.insert(key.clone().map(|s| &s[4..]), 23);
@@ -1408,7 +1424,7 @@ mod tests {
 
         #[test]
         fn try_map1() {
-            use std::any::Any;
+            use core::any::Any;
 
             let x = Box::new(123_i32);
             let y: Box<Any> = x;
@@ -1418,7 +1434,7 @@ mod tests {
 
         #[test]
         fn try_map2() {
-            use std::any::Any;
+            use core::any::Any;
 
             let x = Box::new(123_i32);
             let y: Box<Any> = x;
@@ -1428,16 +1444,20 @@ mod tests {
     }
 
     mod owning_handle {
+        use alloc::boxed::Box;
+        use alloc::vec::Vec;
+        use alloc::string::String;
+
         use super::super::OwningHandle;
         use super::super::RcRef;
-        use std::rc::Rc;
-        use std::cell::RefCell;
-        use std::sync::Arc;
-        use std::sync::RwLock;
+        use alloc::rc::Rc;
+        use core::cell::RefCell;
+        use alloc::arc::Arc;
+        use spin::RwLock;
 
         #[test]
         fn owning_handle() {
-            use std::cell::RefCell;
+            use core::cell::RefCell;
             let cell = Rc::new(RefCell::new(2));
             let cell_ref = RcRef::new(cell);
             let mut handle = OwningHandle::new_with_fn(cell_ref, |x| unsafe { x.as_ref() }.unwrap().borrow_mut());
@@ -1448,7 +1468,7 @@ mod tests {
 
         #[test]
         fn try_owning_handle_ok() {
-            use std::cell::RefCell;
+            use core::cell::RefCell;
             let cell = Rc::new(RefCell::new(2));
             let cell_ref = RcRef::new(cell);
             let mut handle = OwningHandle::try_new::<_, ()>(cell_ref, |x| {
@@ -1463,7 +1483,7 @@ mod tests {
 
         #[test]
         fn try_owning_handle_err() {
-            use std::cell::RefCell;
+            use core::cell::RefCell;
             let cell = Rc::new(RefCell::new(2));
             let cell_ref = RcRef::new(cell);
             let handle = OwningHandle::try_new::<_, ()>(cell_ref, |x| {
@@ -1479,8 +1499,9 @@ mod tests {
 
         #[test]
         fn nested() {
-            use std::cell::RefCell;
-            use std::sync::{Arc, RwLock};
+            use core::cell::RefCell;
+            use spin::Mutex;
+            use alloc::arc::Arc;
 
             let result = {
                 let complex = Rc::new(RefCell::new(Arc::new(RwLock::new("someString"))));
@@ -1496,7 +1517,7 @@ mod tests {
 
         #[test]
         fn owning_handle_safe() {
-            use std::cell::RefCell;
+            use core::cell::RefCell;
             let cell = Rc::new(RefCell::new(2));
             let cell_ref = RcRef::new(cell);
             let handle = OwningHandle::new(cell_ref);
@@ -1505,7 +1526,7 @@ mod tests {
 
         #[test]
         fn owning_handle_mut_safe() {
-            use std::cell::RefCell;
+            use core::cell::RefCell;
             let cell = Rc::new(RefCell::new(2));
             let cell_ref = RcRef::new(cell);
             let mut handle = OwningHandle::new_mut(cell_ref);
@@ -1530,6 +1551,10 @@ mod tests {
     }
 
     mod owning_ref_mut {
+        use alloc::boxed::Box;
+        use alloc::vec::Vec;
+        use alloc::string::String;
+
         use super::super::{OwningRefMut, BoxRefMut, Erased, ErasedBoxRefMut};
         use super::super::BoxRef;
         use std::cmp::{PartialEq, Ord, PartialOrd, Ordering};
@@ -1540,7 +1565,7 @@ mod tests {
         #[derive(Debug, PartialEq)]
         struct Example(u32, String, [u8; 3]);
         fn example() -> Example {
-            Example(42, "hello world".to_string(), [1, 2, 3])
+            Example(42, String::from("hello world"), [1, 2, 3])
         }
 
         #[test]
@@ -1703,9 +1728,9 @@ mod tests {
         #[test]
         fn raii_locks() {
             use super::super::RefMutRefMut;
-            use std::cell::RefCell;
+            use core::cell::RefCell;
             use super::super::{MutexGuardRefMut, RwLockWriteGuardRefMut};
-            use std::sync::{Mutex, RwLock};
+            use spin::{Mutex, RwLock};
 
             {
                 let a = RefCell::new(1);
@@ -1720,7 +1745,7 @@ mod tests {
             {
                 let a = Mutex::new(1);
                 let a = {
-                    let a = MutexGuardRefMut::new(a.lock().unwrap());
+                    let a = MutexGuardRefMut::new(a.lock());
                     assert_eq!(*a, 1);
                     a
                 };
@@ -1730,7 +1755,7 @@ mod tests {
             {
                 let a = RwLock::new(1);
                 let a = {
-                    let a = RwLockWriteGuardRefMut::new(a.write().unwrap());
+                    let a = RwLockWriteGuardRefMut::new(a.write());
                     assert_eq!(*a, 1);
                     a
                 };
@@ -1777,8 +1802,8 @@ mod tests {
         #[test]
         fn borrow() {
             let mut hash = HashMap::new();
-            let     key1 = BoxRefMut::<String>::new(Box::new("foo".to_string())).map(|s| &s[..]);
-            let     key2 = BoxRefMut::<String>::new(Box::new("bar".to_string())).map(|s| &s[..]);
+            let     key1 = BoxRefMut::<String>::new(Box::new(String::from("foo"))).map(|s| &s[..]);
+            let     key2 = BoxRefMut::<String>::new(Box::new(String::from("bar"))).map(|s| &s[..]);
 
             hash.insert(key1, 42);
             hash.insert(key2, 23);
@@ -1817,7 +1842,7 @@ mod tests {
 
         #[test]
         fn try_map1() {
-            use std::any::Any;
+            use core::any::Any;
 
             let x = Box::new(123_i32);
             let y: Box<Any> = x;
@@ -1827,7 +1852,7 @@ mod tests {
 
         #[test]
         fn try_map2() {
-            use std::any::Any;
+            use core::any::Any;
 
             let x = Box::new(123_i32);
             let y: Box<Any> = x;
@@ -1837,7 +1862,7 @@ mod tests {
 
         #[test]
         fn try_map3() {
-            use std::any::Any;
+            use core::any::Any;
 
             let x = Box::new(123_i32);
             let y: Box<Any> = x;
@@ -1847,7 +1872,7 @@ mod tests {
 
         #[test]
         fn try_map4() {
-            use std::any::Any;
+            use core::any::Any;
 
             let x = Box::new(123_i32);
             let y: Box<Any> = x;
@@ -1873,7 +1898,7 @@ mod tests {
 
         #[test]
         fn ref_mut() {
-            use std::cell::RefCell;
+            use core::cell::RefCell;
 
             let a = RefCell::new(Bar { f: Foo { u: 42 } });
             let mut b = OwningRefMut::new(a.borrow_mut());

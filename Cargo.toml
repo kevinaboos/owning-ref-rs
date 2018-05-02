@@ -12,4 +12,10 @@ repository = "https://github.com/Kimundi/owning-ref-rs"
 keywords = ["reference", "sibling", "field", "owning"]
 
 [dependencies]
-stable_deref_trait = "1.0.0"
+spin = "0.4.5"
+
+[dependencies.stable_deref_trait]
+git = "https://github.com/kevinaboos/stable_deref_trait.git"
+default-features = false
+features = [ "alloc", "spin" ]
+
