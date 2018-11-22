@@ -1088,10 +1088,10 @@ impl<O, T: ?Sized> Hash for OwningRefMut<O, T> where T: Hash {
 /////////////////////////////////////////////////////////////////////////////
 // core types integration and convenience type defs
 /////////////////////////////////////////////////////////////////////////////
-use alloc::Vec;
-use alloc::String;
+use alloc::vec::Vec;
+use alloc::string::String;
 use alloc::rc::Rc;
-use alloc::arc::Arc;
+use alloc::sync::Arc;
 use spin::{MutexGuard, RwLockReadGuard, RwLockWriteGuard};
 use core::cell::{Ref, RefCell, RefMut};
 
@@ -1307,7 +1307,7 @@ mod tests {
         fn raii_locks() {
             use super::super::{RefRef, RefMutRef};
             use core::cell::RefCell;
-            use super::super::{MutexGuardRef, RwLockReadGuardRef, RwLockWriteGuardRef};
+            use super::super::{MutexGuardRef, RwLockReadGuardRef, RwLockWriteGuardRefMut};
             use spin::{Mutex, RwLock};
 
             {
@@ -1353,7 +1353,7 @@ mod tests {
             {
                 let a = RwLock::new(1);
                 let a = {
-                    let a = RwLockWriteGuardRef::new(a.write());
+                    let a = RwLockWriteGuardRefMut::new(a.write());
                     assert_eq!(*a, 1);
                     a
                 };
@@ -1462,15 +1462,12 @@ mod tests {
     }
 
     mod owning_handle {
-        use alloc::boxed::Box;
-        use alloc::vec::Vec;
-        use alloc::string::String;
 
         use super::super::OwningHandle;
         use super::super::RcRef;
         use alloc::rc::Rc;
         use core::cell::RefCell;
-        use alloc::arc::Arc;
+        use alloc::sync::Arc;
         use spin::RwLock;
 
         #[test]
@@ -1518,8 +1515,7 @@ mod tests {
         #[test]
         fn nested() {
             use core::cell::RefCell;
-            use spin::Mutex;
-            use alloc::arc::Arc;
+            use alloc::sync::Arc;
 
             let result = {
                 let complex = Rc::new(RefCell::new(Arc::new(RwLock::new("someString"))));
