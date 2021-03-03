@@ -15,7 +15,7 @@ keywords = ["reference", "sibling", "field", "owning"]
 spin = "0.4.5"
 
 [dependencies.stable_deref_trait]
-git = "https://github.com/kevinaboos/stable_deref_trait.git"
+git = "https://github.com/theseus-os/stable_deref_trait.git"
 branch = "spin"
 default-features = false
 features = [ "alloc", "spin" ]
